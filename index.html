@@ -89,10 +89,7 @@ async function startScan() {
     codeReader.decodeFromVideoDevice(deviceId, 'video', (result, err) => {
       if (result) {
         const isbn = result.text;
-        if (!isbn.startsWith("978") && !isbn.startsWith("979")) {
-          alert("ISBNを読み取ってください");
-          return;
-        }
+       
         fetchBookData(isbn);
       }
       if (err && !(err instanceof ZXing.NotFoundException)) {
