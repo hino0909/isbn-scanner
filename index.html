@@ -13,14 +13,29 @@ body {
   padding: 20px;
   max-width: 600px;
   margin: auto;
+  position: relative;
 }
 
 video {
   width: 100%;
-  aspect-ratio: 3 / 1;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 8px;
   background: black;
+  position: relative;
+}
+
+#overlay {
+  position: absolute;
+  top: 20px; /* videoの位置に合わせる */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 40%;
+  border: 3px dashed red;
+  border-radius: 8px;
+  pointer-events: none;
+  box-sizing: border-box;
 }
 
 button {
@@ -51,7 +66,11 @@ img {
 
 <h2>📚 本棚管理</h2>
 
-<video id="video"></video>
+<div style="position: relative;">
+  <video id="video"></video>
+  <div id="overlay"></div>
+</div>
+
 <button onclick="startScan()">スキャン開始</button>
 
 <h3>検索</h3>
@@ -63,48 +82,78 @@ img {
 <script>
 let books = JSON.parse(localStorage.getItem("books") || "[]");
 const codeReader = new ZXing.BrowserBarcodeReader();
+let scanning = false;
 
 async function startScan() {
+  if (scanning) return;
+  scanning = true;
+
   try {
-    const result = await codeReader.decodeOnceFromVideoDevice(undefined, 'video');
-    const isbn = result.text;
-    if (!isbn.startsWith("978") && !isbn.startsWith("979")) {
-      alert("ISBNを読み取ってください");
+    const videoInputDevices = await codeReader.listVideoInputDevices();
+    if (videoInputDevices.length === 0) {
+      alert("カメラが見つかりません");
+      scanning = false;
       return;
     }
-    fetchBookData(isbn);
+
+    const deviceId = videoInputDevices[0].deviceId;
+
+    codeReader.decodeFromVideoDevice(deviceId, 'video', (result, err) => {
+      if (result) {
+        const isbn = result.text;
+        if (!isbn.startsWith("978") && !isbn.startsWith("979")) {
+          alert("ISBNを読み取ってください");
+          return;
+        }
+        fetchBookData(isbn);
+      }
+      if (err && !(err instanceof ZXing.NotFoundException)) {
+        console.error(err);
+      }
+    });
+
   } catch (err) {
-    alert("読み取れませんでした");
+    alert("カメラが使えません");
+    scanning = false;
   }
 }
 
 async function fetchBookData(isbn) {
-  const res = await fetch(
-    https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}
-  );
-  const data = await res.json();
-
-  if (data.totalItems === 0) {
-    alert("本が見つかりません");
+  if (books.find(b => b.isbn === isbn)) {
+    alert("この本は既に登録済みです");
     return;
   }
 
-  const book = data.items[0].volumeInfo;
+  try {
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const data = await res.json();
 
-  const newBook = {
-    id: Date.now(),
-    isbn,
-    title: book.title || "",
-    authors: book.authors ? book.authors.join(", ") : "",
-    publisher: book.publisher || "",
-    thumbnail: book.imageLinks?.thumbnail || "",
-    genre: "",
-    memo: ""
-  };
+    if (data.totalItems === 0) {
+      alert("本が見つかりません");
+      return;
+    }
 
-  books.push(newBook);
-  saveBooks();
-  renderBooks();
+    const book = data.items[0].volumeInfo;
+
+    const newBook = {
+      id: Date.now(),
+      isbn,
+      title: book.title || "",
+      authors: book.authors ? book.authors.join(", ") : "",
+      publisher: book.publisher || "",
+      thumbnail: book.imageLinks?.thumbnail || "",
+      genre: "",
+      memo: ""
+    };
+
+    books.push(newBook);
+    saveBooks();
+    renderBooks();
+
+  } catch (err) {
+    alert("本の情報を取得できませんでした");
+    console.error(err);
+  }
 }
 
 function saveBooks() {
@@ -122,7 +171,7 @@ function renderBooks() {
       const div = document.createElement("div");
       div.className = "book";
       div.innerHTML = `
-        ${book.thumbnail ? <img src="${book.thumbnail}"><br> : ""}
+        ${book.thumbnail ? `<img src="${book.thumbnail}"><br>` : ""}
         <strong>${book.title}</strong><br>
         ${book.authors}<br>
         ${book.publisher}<br>
