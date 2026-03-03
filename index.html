@@ -25,18 +25,6 @@ video {
   position: relative;
 }
 
-#overlay {
-  position: absolute;
-  top: 20px; /* videoの位置に合わせる */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80%;
-  height: 40%;
-  border: 3px dashed red;
-  border-radius: 8px;
-  pointer-events: none;
-  box-sizing: border-box;
-}
 
 button {
   margin: 5px 0;
@@ -64,7 +52,7 @@ img {
 
 <body>
 
-<h2>📚 本棚管理</h2>
+<h2> 本棚管理</h2>
 
 <div style="position: relative;">
   <video id="video"></video>
@@ -119,10 +107,7 @@ async function startScan() {
 }
 
 async function fetchBookData(isbn) {
-  if (books.find(b => b.isbn === isbn)) {
-    alert("この本は既に登録済みです");
-    return;
-  }
+ 
 
   try {
     const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
